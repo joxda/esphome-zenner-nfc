@@ -27,18 +27,33 @@ void ZennerNfc::setup() {
   if (this->read_success_sensor_) this->read_success_sensor_->publish_state(false);
   this->nfc_->begin();
   this->high_frequency_.start();
-  this->status_("initializing PN5180");
+  this->status_(this->nfc_->is_pn5180() ? "initializing PN5180" : "initializing PN532");
   this->nfc_->start_reset();
 }
 void ZennerNfc::boot_loop_() {
   if (this->nfc_->active()) return;
   if (!this->nfc_->ok()) {
+    if (!this->nfc_->is_pn5180()) {
+      ESP_LOGE(TAG, "PN532 startup failed: %s", this->nfc_->error());
+      this->status_("PN532 startup failed");
+      this->nfc_->hold_reset();
+      this->high_frequency_.stop();
+      mark_failed(LOG_STR("PN532 startup failed"));
+      return;
+    }
     ESP_LOGE(TAG, "PN5180 startup failed at step %u: %s", this->boot_step_, this->nfc_->error());
     this->status_("PN5180 startup/DPC configuration failed");
     this->nfc_->abort();
-    this->rst_->digital_write(false);
+    this->nfc_->hold_reset();
     this->high_frequency_.stop();
     mark_failed(LOG_STR("PN5180 startup failed"));
+    return;
+  }
+  if (!this->nfc_->is_pn5180()) {
+    this->ready_ = true;
+    dump_config();
+    this->status_("ready");
+    this->idle_();
     return;
   }
   switch (this->boot_step_) {
@@ -76,7 +91,7 @@ void ZennerNfc::boot_loop_() {
       if (this->nfc_->data()[0] != this->desired_dpc_) {
         this->status_("PN5180 DPC verification failed");
         this->nfc_->abort();
-        this->rst_->digital_write(false);
+        this->nfc_->hold_reset();
         this->high_frequency_.stop();
         mark_failed(LOG_STR("DPC readback mismatch; no retry"));
         return;
@@ -114,6 +129,11 @@ void ZennerNfc::idle_() {
 }
 void ZennerNfc::dump_config() {
   ESP_LOGCONFIG(TAG, "Zenner NFC 1.0: documented 01 -> 29, A2 transport");
+  if (!this->nfc_->is_pn5180()) {
+    ESP_LOGCONFIG(TAG, "PN532 reader over I2C");
+    LOG_UPDATE_INTERVAL(this);
+    return;
+  }
   if (this->pn5180_versions_valid_) {
     ESP_LOGCONFIG(TAG, "PN5180 product version: %X.%X (raw %02X %02X)", this->pn5180_versions_[1],
                   this->pn5180_versions_[0], this->pn5180_versions_[0], this->pn5180_versions_[1]);
@@ -322,7 +342,7 @@ void ZennerNfc::loop() {
       if (!this->nfc_->ok()) {
         ESP_LOGW(TAG, "Reader recovery failed; held in reset until next scan");
         this->nfc_->abort();
-        this->rst_->digital_write(false);
+        this->nfc_->hold_reset();
       }
       this->idle_();
       return;

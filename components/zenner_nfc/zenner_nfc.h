@@ -18,7 +18,7 @@ class ZennerNfc : public PollingComponent, public PN5180 {
   float get_setup_priority() const override { return setup_priority::DATA; }
   void on_shutdown() override {
     nfc_->abort();
-    rst_->digital_write(false);
+    nfc_->hold_reset();
   }
   void setup() override;
   void update() override;
@@ -31,7 +31,7 @@ class ZennerNfc : public PollingComponent, public PN5180 {
   void set_consecutive_errors_limit(uint8_t n) { consecutive_errors_limit_ = n; }
   void set_dpc_mode(uint8_t mode) { dpc_mode_ = mode; }
   void set_flow_unit(uint8_t value) { flow_unit_ = value; }
-  void set_busy_timeout(uint8_t ms) {
+  void set_reader_busy_timeout(uint8_t ms) {
     busy_timeout_ms_ = ms;
     nfc_->set_busy_timeout(ms);
   }
@@ -90,7 +90,7 @@ class ZennerNfc : public PollingComponent, public PN5180 {
   void finish_scan_(const char *reason, bool success = false);
   void status_(const char *value);
   void log_session_(const char *label, const uint8_t *regs);
-  PN5180 *nfc_{this};
+  NfcReader *nfc_{this};
   text_sensor::TextSensor *uid_sensor_{nullptr}, *status_sensor_{nullptr}, *raw_response_sensor_{nullptr};
 };
 }  // namespace zenner_nfc

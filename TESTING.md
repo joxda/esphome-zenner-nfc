@@ -10,6 +10,8 @@
 - Protocol, production asynchronous driver and production component tests passed
   with AddressSanitizer/UndefinedBehaviorSanitizer. LeakSanitizer was disabled for
   the local container's process-inspection limitation.
+- PN532 host tests cover I2C and SPI startup, tag selection, mailbox session reads,
+  A2 page writes and 64-byte fast reads. PN532 hardware behavior remains unverified.
 - The compiled component source inputs were checked against the package.
 
 ## Test coverage
@@ -34,6 +36,10 @@ SPI/RF state machines and validate published data. Additional cases cover CRC
 rejection, bounded selection retries with RF-off pause, partial A2 failure without
 replay, nonempty mailbox, SPI recovery, sensor invalidation/recovery, RF shutdown
 failure and expiration of deadlines without request replay.
+
+PN532 driver tests use synthetic I2C/SPI frames to validate host transport and
+mailbox command formatting. They do not model PN532 electrical timing, analog RF
+behavior, antenna tuning or a physical Zenner meter.
 
 The simulation models PN5180 BUSY staying high until NSS rises. It does not model
 analog RF behavior, antenna tuning, meter processing delays or physical EEPROM.

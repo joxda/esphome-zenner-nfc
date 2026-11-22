@@ -1,12 +1,13 @@
 # Zenner NFC reader for ESPHome
 
-Read a Zenner IUWS water meter over NFC with a PN5180 NFC module and expose its volume,
+Read a Zenner IUWS water meter over NFC with a PN5180 or PN532 NFC module and expose its volume,
 flow and temperature measurements to Home Assistant. This is a hobby project, use at your own risk. 
 
 ## Compatibility
 
 - Tested build: ESPHome 2026.9.1, ESP-IDF 5.5.5, ESP32-C6 DevKitC-1.
 - PN5180 firmware, 4.0.
+- PN532 support provides I2C (default) and SPI interfaces; hardware validation is pending.
 - tested with Zenner IUWS B.One ultrasonic water meter (DE-20-MI001-PTB011)  
 - should work with other NFC-capable Zenner meters too.
 
@@ -30,7 +31,8 @@ The battery impact of repeated meter access remains unverified;
 
 ## Hardware & build
 
-The build requires wiring a pn5180 module to a ESP32-C6. No other components are needed.
+The original configuration uses a PN5180 module on ESP32-C6. A PN532 configuration
+for the ESP8266 D1 mini is in `examples/esp8266-d1-mini.yaml`.
 ![example setup](images/zenner_reader_pub.jpg)
 
 
@@ -92,12 +94,15 @@ The result stays visible until the next scan. Copy both the `light:` block and
 
 ## Configuration documentation
 
-All entities are optional. `update_interval` defaults to `60s`; `never` allows
-manual-only reads. `spi_busy_timeout` defaults to `50ms` and accepts 1–100 ms.
+All entities are optional. `reader` defaults to `pn5180`; set it to `pn532` for
+a PN532 module. `pn532_interface` defaults to `i2c` and can be set to `spi`.
+`update_interval` defaults to `60s`; `never` allows manual-only reads.
+`spi_busy_timeout` is PN5180-only, defaults to `50ms` and accepts 1–100 ms.
 `consecutive_errors_limit` defaults to 3 and accepts 1–255.
-The normal SPI schema supplies `spi_id` and `cs_pin`; NSS is managed by the reader
-handshake. SPI speed is 2 MHz, mode 0, MSB first. Pin inversion and
-`release_device: true` are not supported.
+PN5180 uses SPI at 2 MHz, mode 0, MSB first, with BUSY-managed NSS. PN532 SPI
+uses 1 MHz, mode 0, LSB first. Set `spi_id` and `cs_pin` for either SPI reader;
+PN5180 also requires its BUSY and reset pins. Pin inversion and
+`release_device: true` are not supported for PN5180.
 
 | Entity | Unit / metadata | Meaning |
 | --- | --- | --- |
@@ -137,6 +142,18 @@ There's likely a DPC bug in pn5180 firmware 4.0. Updating the firmware is not a 
 | `preserve` (default) | Keep reader EEPROM unchanged |
 | `disabled` | Clear bit 0 of reader EEPROM 0x59 |
 | `enabled` | Set bit 0 of reader EEPROM 0x59 |
+
+## PN532 on ESP8266
+
+The PN532 V3 red board can use I2C or SPI; set its DIP switches to the selected
+interface as marked on the board. The D1 mini example uses I2C with SDA on D2
+and SCL on D1. The optional `pn532_reset_pin` is connected to the module reset
+input; omit it if your board does not expose reset.
+
+To use SPI, configure the D1 mini hardware bus on D5 (SCK), D6 (MISO) and D7
+(MOSI), then set `pn532_interface: spi`, `spi_id`, and `cs_pin` in `zenner_nfc`.
+The PN532 SPI driver uses mode 0, LSB first and 1 MHz. The meter protocol and
+shared sensor configuration are the same for either PN532 interface.
 
 
 ## ESP32-C6 led control

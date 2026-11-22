@@ -87,3 +87,24 @@ test = copy.deepcopy(base);test["sensor"] = [{"platform": "max6675", "spi_id": "
 check(test, False, "shared SPI rejected")
 test = copy.deepcopy(base);test["zenner_nfc"]["pn5180_mosi_pin"] = "GPIO4"
 check(test, False, "legacy SPI pin rejected")
+
+pn532_i2c = copy.deepcopy(base)
+pn532_i2c.pop("esp32")
+pn532_i2c["esp8266"] = {"board": "d1_mini"}
+pn532_i2c.pop("spi")
+pn532_i2c["i2c"] = {"id": "nfc_i2c", "sda": "D2", "scl": "D1"}
+pn532_i2c["zenner_nfc"] = {
+    "id": "water_meter", "reader": "pn532", "pn532_interface": "i2c",
+    "i2c_id": "nfc_i2c", "pn532_reset_pin": "D0",
+}
+check(pn532_i2c, True, "PN532 I2C on ESP8266", generate=True)
+
+pn532_spi = copy.deepcopy(pn532_i2c)
+pn532_spi.pop("i2c")
+pn532_spi["spi"] = {
+    "id": "nfc_spi", "clk_pin": "D5", "miso_pin": "D6", "mosi_pin": "D7",
+    "interface": "hardware",
+}
+pn532_spi["zenner_nfc"].pop("i2c_id")
+pn532_spi["zenner_nfc"].update({"pn532_interface": "spi", "spi_id": "nfc_spi", "cs_pin": "D0"})
+check(pn532_spi, True, "PN532 SPI on ESP8266", generate=True)
